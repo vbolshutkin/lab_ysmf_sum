@@ -2,14 +2,9 @@
 #include <string.h>
 #include <math.h>
 
-#include "csr_sum.h"
+#include <omp.h>
 
-void free_args_add(args_add* a)
-{
-	free(a->ma);
-	free(a->mb);
-	free(a->out);
-}
+#include "csr_sum.h"
 
 /*
  * Takes O(nnz) time. Works only with packed structs
@@ -70,13 +65,6 @@ void add(csr* ma, csr* mb, csr* out)
     return;
 }
 
-void *thread_func_add(void *vptr_args)
-{
-	args_add args = *(args_add*)vptr_args;
-	add(args.ma, args.mb, args.out);
-    return NULL;
-}
-
 /*
  * returns a struct with pointers to correct addresses,
  * so we get correct submatrix in place
@@ -120,6 +108,9 @@ void join_rows(size_t size, csr* matrices, csr* out)
 
 void mr_add(csr* ma, csr* mb, int n_threads, csr* out)
 {
+	omp_set_dynamic(0);
+	omp_set_num_threads(n_threads);
+
    int m = ma->m;
    int subm = (int) ceil((m + 0.0) / (n_threads + 0.0));
 
@@ -129,11 +120,9 @@ void mr_add(csr* ma, csr* mb, int n_threads, csr* out)
 
    // preprocessing takes O(1) ~ 0 ms
 
-   pthread_t* MALLOC_IT(threads, n_threads);
-   args_add* MALLOC_IT(args, n_threads);
-
    int from_row = 0;
    int j;
+#pragma omp parallel for
    for (j = 0; j < n_threads; ++j) {
 	   int to_row = from_row + subm - 1;
 	   if (to_row >= m)
@@ -146,21 +135,12 @@ void mr_add(csr* ma, csr* mb, int n_threads, csr* out)
 
 	   // payload ( O(nnz) ), try to do this in parallel
 
-	   args[j].ma = &a_arr[j];
-	   args[j].mb = &b_arr[j];
-	   args[j].out = &sum_arr[j];
+	   add(&a_arr[j], &b_arr[j], &sum_arr[j]);
 
-	   pthread_create(&threads[j], NULL, thread_func_add, &args[j]);
 	   from_row += subm;
-   }
-   for (j = 0; j < n_threads; ++j) {
-	   pthread_join(threads[j], NULL);
    }
    free(a_arr);
    free(b_arr);
-
-   free(threads);
-   free(args);
 
    join_rows(n_threads, sum_arr, out);
 }

@@ -1,8 +1,6 @@
 #ifndef CSR_H
 #define CSR_H
 
-#include <pthread.h>
-
 #include "common.h"
 
 /*
@@ -31,21 +29,6 @@ int get_csr_ja(csr* m, int index);
 
 // destructor
 void free_csr(csr* m);
-
-
-// additional struct to create pthread
-typedef struct {
-	int *a_ptr;
-	int *ia_ptr;
-	int *ja_ptr;
-	csr *mx;
-	int offset;
-} args_mem_copy;
-
-// destructor
-void free_args_mem_copy(args_mem_copy* a);
-
-void *thread_func_mem_copy(void *vptr_args);
 
 /**
  * Takes O(nnz+m) time

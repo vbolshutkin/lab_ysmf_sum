@@ -60,14 +60,6 @@ void free_csr(csr* m)
 	free(m->subcsrs);
 }
 
-// destructor for args_mem_copy struct
-void free_args_mem_copy(args_mem_copy* a)
-{
-	free(a->a_ptr);
-	free(a->ia_ptr);
-	free(a->ja_ptr);
-}
-
 /**
  * Takes O(nnz+m) time
  */
@@ -84,17 +76,6 @@ void matrix_mem_copy(int* a_ptr, int* ia_ptr, int* ja_ptr, csr* mx, int offset)
 
 	memcpy(ja_ptr, mx->ja, mx->nnz*sizeof(int));
 }
-
-/*
- * delegates call to matrix_mem_copy()
- */
-void *thread_func_mem_copy(void *vptr_args)
-{
-	args_mem_copy args = *(args_mem_copy*)vptr_args;
-	matrix_mem_copy(args.a_ptr, args.ia_ptr, args.ja_ptr,args.mx,args.offset);
-    return NULL;
-}
-
 
 /**
  * Function, that packs a fragmented csr
@@ -123,32 +104,20 @@ void pack_csr(csr* in, int n_threads, csr* out)
 	int out_index_iter = 0;
 	int out_row_iter = 0;
 
-	pthread_t* MALLOC_IT(threads, in->subcsr_cnt);
-	args_mem_copy* MALLOC_IT(args, in->subcsr_cnt);
-
+#pragma omp parallel for
 	for (i = 0; i < in->subcsr_cnt; ++i)
 	{
 			csr mx = in->subcsrs[i];
 
-			// try done this in parallel
-			args[i].a_ptr = out->a + out_index_iter;
-			args[i].ia_ptr =        out->ia + out_row_iter;
-			args[i].ja_ptr = out->ja + out_index_iter;
-			args[i].mx = &mx;
-			args[i].offset = out_index_iter;
-
-			pthread_create(&threads[i], NULL, thread_func_mem_copy, &args[i]);
+			matrix_mem_copy(out->a + out_index_iter,
+					out->ia + out_row_iter,
+					out->ja + out_index_iter,
+					&mx,
+					out_index_iter);
 
 			out_index_iter += mx.nnz;
 			out_row_iter += mx.m;
 	}
-
-	for (i = 0; i < in->subcsr_cnt; ++i)
-	{
-			pthread_join(threads[i], NULL);
-	}
-	free(threads);
-	free(args);
 
 	out->m = m;
 	out->nnz = nnz;

@@ -2,7 +2,7 @@
 #define COMMON_H
 
 #define MALLOC_IT(ptr, sz) (ptr) = malloc((sz) * sizeof(*(ptr)))
-#define REALLOC_IT(ptr, sz) (ptr) = malloc((sz) * sizeof(*(ptr)))
+#define REALLOC_IT(ptr, sz) (ptr) = realloc(ptr, (sz) * sizeof(*(ptr)))
 
 
 #define FREE_ARRAY(ind, sz, arr, free_func) \

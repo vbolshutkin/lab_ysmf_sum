@@ -3,17 +3,7 @@
 
 #include "csr.h"
 
-typedef struct {
-	csr *ma;
-	csr *mb;
-	csr *out;
-} args_add;
-
-void free_args_add(args_add* a);
-
 void add(csr* ma, csr* mb, csr* out);
-
-void *thread_func_add(void *vptr_args);
 
 void get_rows(csr* m, int from_row, int to_row, csr* out);
 
