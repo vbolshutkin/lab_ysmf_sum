@@ -16,13 +16,17 @@
 
 #include <unistd.h>
 
+#include "mpi.h"
+
 #include "common.h"
+
 
 #include "rngs.h"
 #include "rvgs.h"
 
 #include "csr.h"
 #include "csr_sum.h"
+#include "csr_mpi.h"
 
 #define DECLARE_TIME_MEASUREMENT struct timeval start, finish
 #define START_TIME_MEASURE gettimeofday(&start, 0)
@@ -88,21 +92,14 @@ int main(int argc, char **argv)
 {
 	int m = 20000, n = 20000;
 	double p = 0.10;
-	int n_threads = 8;
 
 	int c;
-	while ((c = getopt (argc, argv, "hvt:n:m:p:")) != -1) {
+	while ((c = getopt (argc, argv, "hvn:m:p:")) != -1) {
 		 switch (c)
 		   {
 		   case 'h':
 			 break;
 		   case 'v':
-			 break;
-		   case 't':
-			 sscanf(optarg, "%d", &n_threads);
-			 if (n_threads < 1 || n_threads > 64) {
-				 return -1;
-			 }
 			 break;
 		   case 'n':
 			 sscanf(optarg, "%d", &n);
@@ -128,41 +125,58 @@ int main(int argc, char **argv)
 		   }
 	}
 
-	DECLARE_TIME_MEASUREMENT;
 
-	csr ma, mb, mout;
+	int myid;
+	int n_proc;
 
-	printf("%s\n", "Generation");
-	START_TIME_MEASURE;
-	generate_csr(n,m,p,&ma);
-	FINISH_TIME_MEASURE;
-	printf("Matrix A generation took %ld ms\n", TIME_ELAPSED);
+	/* MPI programs start with MPI_Init; all 'N' processes exist thereafter */
+	MPI_Init(&argc,&argv);
+	/* find out how big the SPMD world is */
+	MPI_Comm_size(MPI_COMM_WORLD,&n_proc);
+	/* and this processes' rank is */
+	MPI_Comm_rank(MPI_COMM_WORLD,&myid);
 
-	START_TIME_MEASURE;
-	generate_csr(n,m,p,&mb);
-	FINISH_TIME_MEASURE;
-	printf("Matrix B generation took %ld ms\n", TIME_ELAPSED);
+	if (myid == 0) {
 
-	printf("%s\n", "SeqAdd");
-	START_TIME_MEASURE;
-	add(&ma, &mb, &mout);
-	FINISH_TIME_MEASURE;
-	double simple_time = TIME_ELAPSED;
-	printf("Simple summation took %ld ms\n", TIME_ELAPSED);
+		DECLARE_TIME_MEASUREMENT;
 
-	printf("%s\n", "ParAdd");
-	START_TIME_MEASURE;
-	mr_add(&ma, &mb, n_threads, &mout);
-	FINISH_TIME_MEASURE;
-	double mr_time = TIME_ELAPSED;
-	printf("Summation took %ld ms\n", TIME_ELAPSED);
+		csr ma, mb, mout;
 
-	printf("With %d threads it is %.2f times faster\n", n_threads, (simple_time + 0.0) / (mr_time + 0.0));
+		printf("%s\n", "Generation");
+		START_TIME_MEASURE;
+		generate_csr(n,m,p,&ma);
+		FINISH_TIME_MEASURE;
+		printf("Matrix A generation took %ld ms\n", TIME_ELAPSED);
 
-	free_csr(&ma);
-	free_csr(&mb);
-	free_csr(&mout);
+		START_TIME_MEASURE;
+		generate_csr(n,m,p,&mb);
+		FINISH_TIME_MEASURE;
+		printf("Matrix B generation took %ld ms\n", TIME_ELAPSED);
 
+		printf("%s\n", "SeqAdd");
+		START_TIME_MEASURE;
+		add(&ma, &mb, &mout);
+		FINISH_TIME_MEASURE;
+		double simple_time = TIME_ELAPSED;
+		printf("Simple summation took %ld ms\n", TIME_ELAPSED);
+
+		printf("%s\n", "ParAdd");
+		START_TIME_MEASURE;
+		mpi_csr_add_master(&ma, &mb, n_proc - 1, &mout); // number of slaves
+		FINISH_TIME_MEASURE;
+		double mr_time = TIME_ELAPSED;
+		printf("Summation took %ld ms\n", TIME_ELAPSED);
+
+		printf("With %d threads it is %.2f times faster\n", n_proc, (simple_time + 0.0) / (mr_time + 0.0));
+
+		free_csr(&ma);
+		free_csr(&mb);
+		free_csr(&mout);
+	} else {
+		mpi_csr_add_slave();
+	}
+
+	MPI_Finalize();
 	return 0;
 }
 

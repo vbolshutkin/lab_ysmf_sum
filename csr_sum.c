@@ -56,6 +56,7 @@ void add(csr* ma, csr* mb, csr* out)
 	out->m = m;
     out->ia[m] = c_iter;
     out->nnz = c_iter;
+    out->offset = 0;
 
 	REALLOC_IT(out->a, c_iter);
 	REALLOC_IT(out->ja, c_iter);

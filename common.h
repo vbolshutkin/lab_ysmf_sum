@@ -1,6 +1,10 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #define MALLOC_IT(ptr, sz) (ptr) = malloc((sz) * sizeof(*(ptr)))
 #define REALLOC_IT(ptr, sz) (ptr) = realloc(ptr, (sz) * sizeof(*(ptr)))
 
