@@ -160,14 +160,22 @@ int main(int argc, char **argv)
 		double simple_time = TIME_ELAPSED;
 		printf("Simple summation took %ld ms\n", TIME_ELAPSED);
 
+		printf("%s\n", "Scatter");
+		START_TIME_MEASURE;
+		mpi_csr_scatter(&ma, &mb, n_proc - 1); // number of slaves
+		FINISH_TIME_MEASURE;
+		printf("Scattering took %ld ms\n", TIME_ELAPSED);
+
 		printf("%s\n", "ParAdd");
 		START_TIME_MEASURE;
-		mpi_csr_add_master(&ma, &mb, n_proc - 1, &mout); // number of slaves
+		mpi_csr_add(n_proc - 1);
 		FINISH_TIME_MEASURE;
-		double mr_time = TIME_ELAPSED;
+		double mpi_add_time = TIME_ELAPSED;
 		printf("Summation took %ld ms\n", TIME_ELAPSED);
 
-		printf("With %d threads it is %.2f times faster\n", n_proc, (simple_time + 0.0) / (mr_time + 0.0));
+		printf("With %d threads it is %.2f times faster\n", n_proc, (simple_time + 0.0) / (mpi_add_time + 0.0));
+
+		mpi_csr_free(n_proc - 1);
 
 		free_csr(&ma);
 		free_csr(&mb);
